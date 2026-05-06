@@ -1,6 +1,6 @@
 # 🌿 VQA Dược Liệu Việt Nam
 
-> **Mô hình Visual Question Answering (VQA) cho dược liệu Việt Nam**  
+> **Mô hình Visual Question Answering (VQA) cho dược liệu Việt Nam**
 > Kiến trúc module: **DINOv2** + **PhoBERT** + **Co-Attention Fusion** + **LSTM / Transformer Decoder**
 
 ---
@@ -10,6 +10,7 @@
 -->
 
 ## 📋 Mục lục
+
 - [Giới thiệu](#-giới-thiệu)
 - [Kiến trúc mô hình](#-kiến-trúc-mô-hình)
 - [Cài đặt](#-cài-đặt)
@@ -17,7 +18,7 @@
 - [Cấu trúc dự án](#-cấu-trúc-dự-án)
 - [Kết quả thực nghiệm](#-kết-quả-thực-nghiệm)
 - [Demo Web UI](#-demo-web-ui)
-- [Dataset & Checkpoint](#-dataset--checkpoint)
+- [Dataset &amp; Checkpoint](#-dataset--checkpoint)
 
 ---
 
@@ -25,47 +26,43 @@
 
 Dự án xây dựng hệ thống trả lời câu hỏi dựa trên hình ảnh (VQA) cho bộ dữ liệu dược liệu y học cổ truyền Việt Nam. Mô hình có khả năng nhận dạng loài cây, mô tả đặc điểm hình thái và trả lời các câu hỏi về công dụng y học.
 
-**Môn học:** Học Sâu (Deep Learning)  
-**Dữ liệu:** [tracuuduoclieu.vn](https://tracuuduoclieu.vn)  
+**Môn học:** Học Sâu (Deep Learning)
+**Dữ liệu:** [tracuuduoclieu.vn](https://tracuuduoclieu.vn)
 **Môi trường huấn luyện:** Kaggle (GPU T4)
 
 ---
 
 ## 🏗 Kiến trúc mô hình
 
-```
-Ảnh (224×224) ──► ImageEncoder (DINOv2-base) ──► patch_embeddings (256×768)
-                                                          │
-                                                ┌─────────▼──────────┐
-Câu hỏi (VI) ──► TextEncoder (PhoBERT-base-v2) │  Co-Attention      │──► fusion_memory
-                ──► token_embeddings (64×768) ──┤  Fusion Module     │──► fusion_cls
-                                                └────────────────────┘
-                                                          │
-                                           ┌──────────────┴─────────────┐
-                                           │                             │
-                                    LSTMDecoder (A1)       TransformerDecoder (A2)
-                                    + BahdanauAttention     + PositionalEncoding
-                                           │                             │
-                                           └──────────────┬─────────────┘
-                                                          ▼
-                                               Câu trả lời (Tiếng Việt)
-```
+### Kiến trúc tổng thể
 
-<!-- [TODO] Thêm ảnh sơ đồ kiến trúc chính thức (từ báo cáo hoặc draw.io) vào docs/images/architecture.png
-![Architecture](docs/images/architecture.png)
--->
+**Mô hình A1 (LSTM Decoder)**
+![LSTM Architecture](docs/images/LSTM.png)
+
+**Mô hình A2 (Transformer Decoder)**
+![Transformer Architecture](docs/images/Transformer.png)
+
+### Chi tiết Decoder
+
+**Chi tiết LSTM Decoder**
+![LSTM Decoder Details](docs/images/LSTM_Decoder.png)
+
+**Chi tiết Transformer Decoder**
+![Transformer Decoder Details](docs/images/Transformer_Decoder.png)
 
 ---
 
 ## ⚙️ Cài đặt
 
 ### 1. Clone repo
+
 ```bash
 git clone https://github.com/<YOUR_USERNAME>/vqa-herb.git
 cd vqa-herb
 ```
 
 ### 2. Tạo môi trường ảo và cài thư viện
+
 ```bash
 python -m venv .venv
 # Windows:
@@ -77,6 +74,7 @@ pip install -r requirements.txt
 ```
 
 ### 3. Cấu hình biến môi trường
+
 ```bash
 cp .env.example .env
 # Mở .env và điền HF_TOKEN của bạn
@@ -87,6 +85,7 @@ cp .env.example .env
 ## 🚀 Sử dụng nhanh
 
 ### Huấn luyện
+
 ```bash
 # Giai đoạn 1 — Freeze Encoder, chỉ train Fusion + Decoder
 python train.py --decoder transformer --phase 1
@@ -99,11 +98,13 @@ python train.py --decoder lstm --phase 1
 ```
 
 ### Đánh giá trên tập Test
+
 ```bash
 python evaluate.py --decoder transformer
 ```
 
 ### Dự đoán nhanh (CLI)
+
 ```bash
 python inference.py \
   --image data/sample_images/cam_thao.jpg \
@@ -112,6 +113,7 @@ python inference.py \
 ```
 
 ### Demo Web UI (Gradio)
+
 ```bash
 python app.py --decoder transformer --port 7860
 # Mở trình duyệt: http://localhost:7860
@@ -172,28 +174,29 @@ vqa-herb/
 
 ## 📊 Kết quả thực nghiệm
 
-<!-- [TODO] Điền kết quả thực tế vào bảng dưới đây sau khi chạy evaluate.py -->
+| Metric          | A1 (LSTM Decoder) | A2 (Transformer Decoder) |
+| :-------------- | :---------------: | :----------------------: |
+| VQA Acc (Exact) |      0.0108      |          0.0061          |
+| BLEU-1          |      0.3760      |          0.2723          |
+| BLEU-4          |      0.1870      |          0.1125          |
+| ROUGE-L         |      0.4345      |          0.3932          |
+| METEOR          |      0.3114      |          0.2795          |
+| BERTScore F1    |      0.7929      |          0.7733          |
+| LLM Judge       |      0.3667      |          0.3293          |
 
-| Metric       | A1 – LSTM | A2 – Transformer |
-|:-------------|:---------:|:----------------:|
-| VQA Accuracy | ??.??%    | ??.??%           |
-| BLEU-1       | 0.????    | 0.????           |
-| BLEU-4       | 0.????    | 0.????           |
-| ROUGE-L      | 0.????    | 0.????           |
-| METEOR       | 0.????    | 0.????           |
-| BERTScore F1 | 0.????    | 0.????           |
+**Biểu đồ so sánh kết quả**
 
-<!-- [TODO] Thêm biểu đồ so sánh
-![Comparison Chart](docs/images/model_comparison.png)
--->
+![Comparison Chart](docs/images/metric_result.png)
 
 ---
 
 ## 🖥 Demo Web UI
 
-<!-- [TODO] Thêm ảnh chụp màn hình giao diện Gradio
-![Gradio UI](docs/images/gradio_ui.png)
--->
+python vqa-herb/app.py --decoder lstm
+
+python vqa-herb/app.py --decoder transformer
+
+![Gradio UI](docs/images/webDemo.png)
 
 <!-- [TODO] Thêm link video demo YouTube/Drive
 📹 **Video demo (3-5 phút):** [CHÈN LINK YOUTUBE TẠI ĐÂY]
@@ -203,9 +206,9 @@ vqa-herb/
 
 ## 📦 Dataset & Checkpoint
 
-| Tài nguyên   | Link                                                                  |
-|:-------------|:----------------------------------------------------------------------|
-| Dataset      | [HuggingFace – azan100an/tdtu_vqa_dataset_herb](https://huggingface.co/datasets/azan100an/tdtu_vqa_dataset_herb) |
+| Tài nguyên | Link                                                                                                                              |
+| :----------- | :-------------------------------------------------------------------------------------------------------------------------------- |
+| Dataset      | [HuggingFace – azan100an/tdtu_vqa_dataset_herb](https://huggingface.co/datasets/azan100an/tdtu_vqa_dataset_herb)                    |
 | Checkpoints  | [HuggingFace – azan100an/vqa-herb-checkpoints-Vit_base_colab](https://huggingface.co/azan100an/vqa-herb-checkpoints-Vit_base_colab) |
 
 ```bash
@@ -219,16 +222,3 @@ hf_hub_download(
 )
 "
 ```
-
----
-
-## 📝 Ghi chú cho người dùng
-
-> **⚠️ TODO – Các việc cần bổ sung thủ công:**
-> 1. Thêm 2-3 ảnh dược liệu mẫu vào `data/sample_images/` để demo.
-> 2. Thêm ảnh sơ đồ kiến trúc vào `docs/images/architecture.png`.
-> 3. Thêm ảnh chụp màn hình Gradio UI vào `docs/images/gradio_ui.png`.
-> 4. Thêm ảnh biểu đồ kết quả vào `docs/images/model_comparison.png`.
-> 5. Điền kết quả thực tế vào bảng **Kết quả thực nghiệm**.
-> 6. Thêm link video demo YouTube/Google Drive.
-> 7. Thêm file báo cáo PDF vào `docs/Bao_Cao_VQA.pdf`.
