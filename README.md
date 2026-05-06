@@ -192,9 +192,15 @@ vqa-herb/
 
 ## 🖥 Demo Web UI
 
+Chạy giao diện Web (Gradio) để dùng thử mô hình:
+
+```bash
+# Sử dụng mô hình LSTM (A1)
 python vqa-herb/app.py --decoder lstm
 
+# Hoặc sử dụng mô hình Transformer (A2)
 python vqa-herb/app.py --decoder transformer
+```
 
 ![Gradio UI](docs/images/webDemo.png)
 
