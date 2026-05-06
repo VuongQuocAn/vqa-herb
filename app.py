@@ -9,6 +9,12 @@ import argparse
 import os
 import pickle
 
+import matplotlib
+matplotlib.use("Agg")  # non-interactive backend
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import numpy as np
+
 # Thư mục gốc của app.py (luôn đúng bất kể chạy từ đâu)
 _APP_DIR = os.path.dirname(os.path.abspath(__file__))
 _SAMPLE_DIR = os.path.join(_APP_DIR, "data", "sample_images")
@@ -103,12 +109,39 @@ def predict(image: Image.Image, question: str) -> str:
     attention_mask = enc["attention_mask"].to(DEVICE)
 
     with torch.no_grad():
-        pred_ids = _model.predict(pixel_values, input_ids, attention_mask, beam_size=3)
+        pred_ids, attn_map_2d = _model.predict_with_attention(
+            pixel_values, input_ids, attention_mask, beam_size=3
+        )
 
-    return _answer_vocab.decode(pred_ids)
+    answer_text = _answer_vocab.decode(pred_ids)
+    attn_img    = _make_attention_overlay(image, attn_map_2d)
+    return answer_text, attn_img
 
 
-# ── Giao diện Gradio ──────────────────────────────────────────────────────────
+def _make_attention_overlay(image: Image.Image, attn_map: "torch.Tensor") -> Image.Image:
+    """Vẽ heatmap attention (jet colormap) đè lên ảnh gốc, trả về PIL Image."""
+    w, h = image.size
+    attn_np = attn_map.numpy().astype(np.float32)  # (grid, grid)
+
+    # Up-sample heatmap về đúng kích thước ảnh
+    from PIL import Image as PILImage
+    heatmap_pil = PILImage.fromarray(
+        np.uint8(attn_np * 255)
+    ).resize((w, h), PILImage.BILINEAR)
+    heatmap_np  = np.array(heatmap_pil) / 255.0  # [0,1]
+
+    # Áp colormap Jet
+    colormap    = matplotlib.colormaps["jet"]
+    heatmap_rgb = colormap(heatmap_np)[:, :, :3]   # (H,W,3) float [0,1]
+
+    # Hòa trộn: 50% ảnh gốc + 50% heatmap
+    orig_np     = np.array(image.convert("RGB")).astype(np.float32) / 255.0
+    blended     = 0.5 * orig_np + 0.5 * heatmap_rgb
+    blended     = np.clip(blended * 255, 0, 255).astype(np.uint8)
+    return PILImage.fromarray(blended)
+
+
+# ── Giao diện Gradio ─────────────────────────────────────────────────────────────────────────────
 def build_ui():
     with gr.Blocks(title="VQA Dược Liệu Việt Nam", theme=gr.themes.Soft()) as demo:
         gr.Markdown(
@@ -138,9 +171,14 @@ def build_ui():
                     lines=3,
                     interactive=False,
                 )
+                gr.Markdown("#### 🔍 Attention Map — Mô hình đang nhìn vào đâu?")
+                attn_output = gr.Image(
+                    show_label=False,
+                    type="pil",
+                    interactive=False,
+                )
 
         # Ví dụ mẫu
-        # [TODO] Bổ sung 2-3 ảnh thật vào data/sample_images/ rồi cập nhật đường dẫn dưới đây
         gr.Examples(
             examples=[
                 [os.path.join(_SAMPLE_DIR, "demo_10_P000001916.jpg"), "Đây là cây gì?"],
@@ -153,12 +191,12 @@ def build_ui():
         submit_btn.click(
             fn=predict,
             inputs=[image_input, question_input],
-            outputs=answer_output,
+            outputs=[answer_output, attn_output],
         )
         question_input.submit(
             fn=predict,
             inputs=[image_input, question_input],
-            outputs=answer_output,
+            outputs=[answer_output, attn_output],
         )
 
         gr.Markdown(
