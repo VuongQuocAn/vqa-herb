@@ -1,0 +1,45 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# === Môi trường ảo ===
+.env
+.venv/
+venv/
+ENV/
+
+# === Checkpoints & Model Weights ===
+checkpoints/
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# === Dữ liệu lớn ===
+*.pkl
+data/image_cache/
+data/splits/
+
+# === Logs & Outputs ===
+logs/
+*.log
+wandb/
+
+# === Jupyter Notebook cache ===
+.ipynb_checkpoints/
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+
+# === OS ===
+.DS_Store
+Thumbs.db
