@@ -65,6 +65,55 @@ class VQAModel(nn.Module):
         fusion_memory, fusion_cls = self.fusion(patch_emb, token_emb, attention_mask)
         return self.decoder.beam_search(fusion_memory, fusion_cls, beam_size=beam_size)
 
+    @torch.no_grad()
+    def predict_with_attention(
+        self,
+        pixel_values:   torch.Tensor,
+        input_ids:      torch.Tensor,
+        attention_mask: torch.Tensor,
+        beam_size: int = 3,
+    ) -> tuple[list[int], torch.Tensor]:
+        """
+        Beam Search inference + trích xuất attention map.
+        Trả về:
+            pred_ids     : chuỗi ID token
+            attn_map_2d  : (14, 14) — attention của câu hỏi lên các patch ảnh,
+                           đã được chuẩn hóa về [0, 1].
+        """
+        self.eval()
+        patch_emb, _ = self.image_encoder(pixel_values)
+        token_emb, _ = self.text_encoder(input_ids, attention_mask)
+
+        patch_proj = self.fusion.img_proj(patch_emb)
+        token_proj = self.fusion.text_proj(token_emb)
+
+        # Text → Image attention: câu hỏi nhìn vào vùng nào của ảnh?
+        _, attn_weights = self.fusion.text_guided_img_attn(
+            query=token_proj, key=patch_proj, value=patch_proj,
+            need_weights=True, average_attn_weights=True,
+        )
+        # attn_weights: (1, seq_len, num_patches) → trung bình qua các token
+        attn_map = attn_weights[0].mean(dim=0)           # (num_patches,) = 256
+
+        # DINOv2-base: 224/16 = 14 → grid 14×14 = 196 patches
+        # CoAttentionFusion chiếu 768→256 nên giữ nguyên num_patches
+        num_patches = attn_map.shape[0]
+        grid_size   = int(num_patches ** 0.5)            # 14 nếu num_patches=196
+        if grid_size * grid_size == num_patches:
+            attn_map_2d = attn_map.reshape(grid_size, grid_size)
+        else:
+            # fallback: cắt bớt cho vừa grid gần nhất
+            gs = int(num_patches ** 0.5)
+            attn_map_2d = attn_map[:gs * gs].reshape(gs, gs)
+
+        # Chuẩn hóa về [0, 1]
+        attn_map_2d = (attn_map_2d - attn_map_2d.min()) / (attn_map_2d.max() - attn_map_2d.min() + 1e-8)
+
+        fusion_memory, fusion_cls = self.fusion(patch_emb, token_emb, attention_mask)
+        pred_ids = self.decoder.beam_search(fusion_memory, fusion_cls, beam_size=beam_size)
+
+        return pred_ids, attn_map_2d.cpu()
+
     # ── Freeze / Unfreeze helpers ────────────────────────────────────────────
     def freeze_encoders(self) -> None:
         self.image_encoder.freeze()
