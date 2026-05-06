@@ -51,16 +51,24 @@ def main():
 
     set_seed()
 
+    class CustomUnpickler(pickle.Unpickler):
+        def find_class(self, module, name):
+            if name == 'AnswerVocab':
+                from data.vocab import AnswerVocab
+                return AnswerVocab
+            return super().find_class(module, name)
+
     # Load vocab
     with open(VOCAB_PATH, "rb") as f:
-        answer_vocab = pickle.load(f)
+        answer_vocab = CustomUnpickler(f).load()
 
     tokenizer = AutoTokenizer.from_pretrained(PHOBERT_MODEL_NAME)
 
     # Load model
     model = VQAModel(vocab_size=len(answer_vocab), decoder_type=args.decoder).to(DEVICE)
+    model_prefix = "a1" if args.decoder == "lstm" else "a2"
     for phase in [2, 1]:
-        tag = f"vqa_{args.decoder}_phase{phase}_best.pt"
+        tag = f"vqa_{model_prefix}_phase{phase}_best.pt"
         if os.path.exists(os.path.join(CHECKPOINT_DIR, tag)):
             load_checkpoint_if_exists(tag, model)
             break

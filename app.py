@@ -9,6 +9,10 @@ import argparse
 import os
 import pickle
 
+# Thư mục gốc của app.py (luôn đúng bất kể chạy từ đâu)
+_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+_SAMPLE_DIR = os.path.join(_APP_DIR, "data", "sample_images")
+
 import gradio as gr
 import torch
 from PIL import Image
@@ -16,11 +20,10 @@ from transformers import AutoTokenizer
 
 from configs.config import (
     CHECKPOINT_DIR, VOCAB_PATH, PHOBERT_MODEL_NAME,
-    MAX_QUESTION_LEN, DEVICE, set_seed,
+    MAX_QUESTION_LEN, DEVICE, HF_HUB_REPO_ID, set_seed,
 )
 from data.dataset import val_test_transform
 from models.vqa_model import VQAModel
-from utils.checkpoint import load_checkpoint_if_exists
 
 # ── Biến toàn cục cho model (tải 1 lần) ──────────────────────────────────────
 _model        = None
@@ -28,21 +31,56 @@ _tokenizer    = None
 _answer_vocab = None
 
 
+def _ensure_checkpoint(tag: str) -> str:
+    """Đảm bảo checkpoint tồn tại ở local, tự tải từ HuggingFace nếu chưa có."""
+    local_path = os.path.join(CHECKPOINT_DIR, tag)
+    if not os.path.exists(local_path):
+        from huggingface_hub import hf_hub_download
+        print(f"Không tìm thấy {tag} ở local, đang tải từ HuggingFace...")
+        hf_hub_download(
+            repo_id=HF_HUB_REPO_ID,
+            filename=tag,
+            local_dir=CHECKPOINT_DIR,
+        )
+        print(f"Tải xong: {tag}")
+    return local_path
+
+
 def _load_model(decoder_type: str = "transformer"):
     global _model, _tokenizer, _answer_vocab
 
+    class CustomUnpickler(pickle.Unpickler):
+        def find_class(self, module, name):
+            if name == 'AnswerVocab':
+                from data.vocab import AnswerVocab
+                return AnswerVocab
+            return super().find_class(module, name)
+
     with open(VOCAB_PATH, "rb") as f:
-        _answer_vocab = pickle.load(f)
+        _answer_vocab = CustomUnpickler(f).load()
 
     _tokenizer = AutoTokenizer.from_pretrained(PHOBERT_MODEL_NAME)
 
     _model = VQAModel(vocab_size=len(_answer_vocab), decoder_type=decoder_type).to(DEVICE)
+    model_prefix = "a1" if decoder_type == "lstm" else "a2"
+
+    checkpoint_loaded = False
     for phase in [2, 1]:
-        tag = f"vqa_{decoder_type}_phase{phase}_best.pt"
-        if os.path.exists(os.path.join(CHECKPOINT_DIR, tag)):
-            load_checkpoint_if_exists(tag, _model)
+        tag = f"vqa_{model_prefix}_phase{phase}_best.pt"
+        try:
+            local_path = _ensure_checkpoint(tag)
+            ckpt = torch.load(local_path, map_location=DEVICE)
+            _model.load_state_dict(ckpt["model"])
             print(f"Đã nạp checkpoint: {tag}")
+            checkpoint_loaded = True
             break
+        except Exception as e:
+            print(f"Không thể tải {tag}: {e}")
+            continue
+
+    if not checkpoint_loaded:
+        print("CẢNH BÁO: Không nạp được checkpoint nào! Model đang dùng trọng số ngẫu nhiên.")
+
     _model.eval()
     print(f"Model [{decoder_type.upper()}] sẵn sàng trên {DEVICE}.")
 
@@ -105,8 +143,8 @@ def build_ui():
         # [TODO] Bổ sung 2-3 ảnh thật vào data/sample_images/ rồi cập nhật đường dẫn dưới đây
         gr.Examples(
             examples=[
-                ["data/sample_images/placeholder.jpg", "Đây là cây gì?"],
-                ["data/sample_images/placeholder.jpg", "Công dụng của loại dược liệu này là gì?"],
+                [os.path.join(_SAMPLE_DIR, "demo_10_P000001916.jpg"), "Đây là cây gì?"],
+                [os.path.join(_SAMPLE_DIR, "demo_12_P000000048.jpg"), "Công dụng của loại dược liệu này là gì?"],
             ],
             inputs=[image_input, question_input],
             label="Ví dụ mẫu",
