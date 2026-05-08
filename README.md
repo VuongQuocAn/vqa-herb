@@ -3,6 +3,11 @@
 > **Mô hình Visual Question Answering (VQA) cho dược liệu Việt Nam**
 > Kiến trúc module: **DINOv2** + **PhoBERT** + **Co-Attention Fusion** + **LSTM / Transformer Decoder**
 
+[![Hugging Face Spaces](https://img.shields.io/badge/🤗%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/azan100an/vqa-herb-demo)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![Gradio](https://img.shields.io/badge/Gradio-Demo-orange?logo=gradio)](https://huggingface.co/spaces/azan100an/vqa-herb-demo)
+
 ---
 
 <!-- [TODO] Chèn ảnh banner/demo vào đây sau khi có ảnh thật
@@ -192,21 +197,27 @@ vqa-herb/
 
 ## 🖥 Demo Web UI
 
-Chạy giao diện Web (Gradio) để dùng thử mô hình:
+### 🌐 Live Demo — Hugging Face Spaces
 
-```bash
-# Sử dụng mô hình LSTM (A1)
-python vqa-herb/app.py --decoder lstm
+> **Trải nghiệm trực tiếp không cần cài đặt:**
+>
+> 👉 **[https://huggingface.co/spaces/azan100an/vqa-herb-demo](https://huggingface.co/spaces/azan100an/vqa-herb-demo)**
 
-# Hoặc sử dụng mô hình Transformer (A2)
-python vqa-herb/app.py --decoder transformer
-```
+[![Open in HF Spaces](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-xl-dark.svg)](https://huggingface.co/spaces/azan100an/vqa-herb-demo)
 
 ![Gradio UI](docs/images/webDemo.png)
 
-<!-- [TODO] Thêm link video demo YouTube/Drive
-📹 **Video demo (3-5 phút):** [CHÈN LINK YOUTUBE TẠI ĐÂY]
--->
+### 💻 Chạy Local
+
+```bash
+# Su dung mo hinh LSTM (A1)
+python vqa-herb/app.py --decoder lstm
+
+# Su dung mo hinh Transformer (A2)
+python vqa-herb/app.py --decoder transformer
+
+# Mo trinh duyet: http://localhost:7860
+```
 
 ---
 
